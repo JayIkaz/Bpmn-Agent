@@ -1,0 +1,5 @@
+packages:
+  "framer-motion": "For smooth transitions and step revelations"
+  "react-syntax-highlighter": "For BPMN XML syntax highlighting"
+  "@types/react-syntax-highlighter": "Types for syntax highlighter"
+  "lucide-react": "Icons"

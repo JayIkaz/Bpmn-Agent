@@ -14,3 +14,56 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Convert plain-language process description to BPMN 2.0 XML
+ */
+export const ConvertToBpmnBody = zod.object({
+  description: zod
+    .string()
+    .describe("Plain-language description of the business process"),
+  clarificationAnswers: zod
+    .record(zod.string(), zod.string())
+    .nullish()
+    .describe("Optional answers to clarification questions"),
+});
+
+export const ConvertToBpmnResponse = zod.object({
+  xml: zod.string().describe("Valid BPMN 2.0 XML"),
+  elementMapping: zod
+    .array(
+      zod.object({
+        step: zod.string(),
+        elementId: zod.string(),
+        bpmnElement: zod.string(),
+        type: zod.string(),
+        actor: zod.string(),
+      }),
+    )
+    .describe("Table mapping input steps to BPMN elements"),
+  issues: zod
+    .array(
+      zod.object({
+        severity: zod.enum(["assumption", "issue"]),
+        message: zod.string(),
+      }),
+    )
+    .describe("Assumptions made and issues detected"),
+});
+
+/**
+ * @summary Check if a process description needs clarification before conversion
+ */
+export const ClarifyBpmnBody = zod.object({
+  description: zod
+    .string()
+    .describe("Plain-language description of the business process"),
+});
+
+export const ClarifyBpmnResponse = zod.object({
+  needsClarification: zod.boolean(),
+  question: zod
+    .string()
+    .nullable()
+    .describe("Single focused clarification question if needed"),
+});

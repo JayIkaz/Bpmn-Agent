@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "BPMN 2.0 Converter"
+version = "1.0.0"
+id = "artifacts/bpmn-converter"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19187
+
+[services.development]
+run = "pnpm --filter @workspace/bpmn-converter run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bpmn-converter", "run", "build" ]
+publicDir = "artifacts/bpmn-converter/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19187"
+BASE_PATH = "/"

@@ -1,5 +1,25 @@
 # Workspace
 
+## BPMN 2.0 Converter
+
+A full-stack AI-powered tool that converts plain-language business process descriptions into valid BPMN 2.0 XML.
+
+### Features
+- Text input for plain-English process descriptions
+- AI-powered BPMN 2.0 XML generation (GPT-5.2 via Replit AI Integrations)
+- Optional clarification step before conversion
+- Element mapping table (Step → BPMN Element → Type → Actor/Lane)
+- Issues & Assumptions report with ⚠️/🔴 indicators
+- Copy and download the generated XML
+- Full BPMN 2.0 compliance: swimlanes, gateways (XOR/AND/OR), boundary events, message flows
+
+### Architecture
+- Frontend: React + Vite at `/` (`artifacts/bpmn-converter`)
+- Backend: Express API server at `/api` (`artifacts/api-server`)
+- AI: OpenAI GPT-5.2 via Replit AI Integrations (no API key needed)
+- Routes: `POST /api/bpmn/convert`, `POST /api/bpmn/clarify`
+- OpenAI integration: `lib/integrations-openai-ai-server`
+
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.

@@ -6,4 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./bpmnElementMapping";
+export * from "./bpmnError";
+export * from "./bpmnIssue";
+export * from "./bpmnIssueSeverity";
+export * from "./clarifyBpmnBody";
+export * from "./clarifyBpmnResponse";
+export * from "./convertBpmnBody";
+export * from "./convertBpmnBodyClarificationAnswers";
+export * from "./convertBpmnResponse";
 export * from "./healthStatus";

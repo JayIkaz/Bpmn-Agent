@@ -5,18 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  BpmnError,
+  ClarifyBpmnBody,
+  ClarifyBpmnResponse,
+  ConvertBpmnBody,
+  ConvertBpmnResponse,
+  HealthStatus,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +109,175 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Convert plain-language process description to BPMN 2.0 XML
+ */
+export const getConvertToBpmnUrl = () => {
+  return `/api/bpmn/convert`;
+};
+
+export const convertToBpmn = async (
+  convertBpmnBody: ConvertBpmnBody,
+  options?: RequestInit,
+): Promise<ConvertBpmnResponse> => {
+  return customFetch<ConvertBpmnResponse>(getConvertToBpmnUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(convertBpmnBody),
+  });
+};
+
+export const getConvertToBpmnMutationOptions = <
+  TError = ErrorType<BpmnError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertToBpmn>>,
+    TError,
+    { data: BodyType<ConvertBpmnBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof convertToBpmn>>,
+  TError,
+  { data: BodyType<ConvertBpmnBody> },
+  TContext
+> => {
+  const mutationKey = ["convertToBpmn"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof convertToBpmn>>,
+    { data: BodyType<ConvertBpmnBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return convertToBpmn(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConvertToBpmnMutationResult = NonNullable<
+  Awaited<ReturnType<typeof convertToBpmn>>
+>;
+export type ConvertToBpmnMutationBody = BodyType<ConvertBpmnBody>;
+export type ConvertToBpmnMutationError = ErrorType<BpmnError>;
+
+/**
+ * @summary Convert plain-language process description to BPMN 2.0 XML
+ */
+export const useConvertToBpmn = <
+  TError = ErrorType<BpmnError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertToBpmn>>,
+    TError,
+    { data: BodyType<ConvertBpmnBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof convertToBpmn>>,
+  TError,
+  { data: BodyType<ConvertBpmnBody> },
+  TContext
+> => {
+  return useMutation(getConvertToBpmnMutationOptions(options));
+};
+
+/**
+ * @summary Check if a process description needs clarification before conversion
+ */
+export const getClarifyBpmnUrl = () => {
+  return `/api/bpmn/clarify`;
+};
+
+export const clarifyBpmn = async (
+  clarifyBpmnBody: ClarifyBpmnBody,
+  options?: RequestInit,
+): Promise<ClarifyBpmnResponse> => {
+  return customFetch<ClarifyBpmnResponse>(getClarifyBpmnUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(clarifyBpmnBody),
+  });
+};
+
+export const getClarifyBpmnMutationOptions = <
+  TError = ErrorType<BpmnError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clarifyBpmn>>,
+    TError,
+    { data: BodyType<ClarifyBpmnBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clarifyBpmn>>,
+  TError,
+  { data: BodyType<ClarifyBpmnBody> },
+  TContext
+> => {
+  const mutationKey = ["clarifyBpmn"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clarifyBpmn>>,
+    { data: BodyType<ClarifyBpmnBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return clarifyBpmn(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClarifyBpmnMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clarifyBpmn>>
+>;
+export type ClarifyBpmnMutationBody = BodyType<ClarifyBpmnBody>;
+export type ClarifyBpmnMutationError = ErrorType<BpmnError>;
+
+/**
+ * @summary Check if a process description needs clarification before conversion
+ */
+export const useClarifyBpmn = <
+  TError = ErrorType<BpmnError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clarifyBpmn>>,
+    TError,
+    { data: BodyType<ClarifyBpmnBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clarifyBpmn>>,
+  TError,
+  { data: BodyType<ClarifyBpmnBody> },
+  TContext
+> => {
+  return useMutation(getClarifyBpmnMutationOptions(options));
+};

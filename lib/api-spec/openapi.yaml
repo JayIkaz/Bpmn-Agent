@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: bpmn
+    description: BPMN 2.0 conversion operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /bpmn/convert:
+    post:
+      operationId: convertToBpmn
+      tags: [bpmn]
+      summary: Convert plain-language process description to BPMN 2.0 XML
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertBpmnBody"
+      responses:
+        "200":
+          description: BPMN 2.0 XML with element mapping and issues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConvertBpmnResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BpmnError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BpmnError"
+  /bpmn/clarify:
+    post:
+      operationId: clarifyBpmn
+      tags: [bpmn]
+      summary: Check if a process description needs clarification before conversion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClarifyBpmnBody"
+      responses:
+        "200":
+          description: Clarification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClarifyBpmnResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BpmnError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +89,92 @@ components:
           type: string
       required:
         - status
-
+    ConvertBpmnBody:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Plain-language description of the business process
+        clarificationAnswers:
+          type: ["object", "null"]
+          description: Optional answers to clarification questions
+          additionalProperties:
+            type: string
+      required:
+        - description
+    ConvertBpmnResponse:
+      type: object
+      properties:
+        xml:
+          type: string
+          description: Valid BPMN 2.0 XML
+        elementMapping:
+          type: array
+          description: Table mapping input steps to BPMN elements
+          items:
+            $ref: "#/components/schemas/BpmnElementMapping"
+        issues:
+          type: array
+          description: Assumptions made and issues detected
+          items:
+            $ref: "#/components/schemas/BpmnIssue"
+      required:
+        - xml
+        - elementMapping
+        - issues
+    BpmnElementMapping:
+      type: object
+      properties:
+        step:
+          type: string
+        elementId:
+          type: string
+        bpmnElement:
+          type: string
+        type:
+          type: string
+        actor:
+          type: string
+      required:
+        - step
+        - elementId
+        - bpmnElement
+        - type
+        - actor
+    BpmnIssue:
+      type: object
+      properties:
+        severity:
+          type: string
+          enum: ["assumption", "issue"]
+        message:
+          type: string
+      required:
+        - severity
+        - message
+    ClarifyBpmnBody:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Plain-language description of the business process
+      required:
+        - description
+    ClarifyBpmnResponse:
+      type: object
+      properties:
+        needsClarification:
+          type: boolean
+        question:
+          type: ["string", "null"]
+          description: Single focused clarification question if needed
+      required:
+        - needsClarification
+        - question
+    BpmnError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

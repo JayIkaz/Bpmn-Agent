@@ -8,3 +8,69 @@
 export interface HealthStatus {
   status: string;
 }
+
+/**
+ * Optional answers to clarification questions
+ * @nullable
+ */
+export type ConvertBpmnBodyClarificationAnswers = {
+  [key: string]: string;
+} | null;
+
+export interface ConvertBpmnBody {
+  /** Plain-language description of the business process */
+  description: string;
+  /**
+   * Optional answers to clarification questions
+   * @nullable
+   */
+  clarificationAnswers?: ConvertBpmnBodyClarificationAnswers;
+}
+
+export interface BpmnElementMapping {
+  step: string;
+  elementId: string;
+  bpmnElement: string;
+  type: string;
+  actor: string;
+}
+
+export type BpmnIssueSeverity =
+  (typeof BpmnIssueSeverity)[keyof typeof BpmnIssueSeverity];
+
+export const BpmnIssueSeverity = {
+  assumption: "assumption",
+  issue: "issue",
+} as const;
+
+export interface BpmnIssue {
+  severity: BpmnIssueSeverity;
+  message: string;
+}
+
+export interface ConvertBpmnResponse {
+  /** Valid BPMN 2.0 XML */
+  xml: string;
+  /** Table mapping input steps to BPMN elements */
+  elementMapping: BpmnElementMapping[];
+  /** Assumptions made and issues detected */
+  issues: BpmnIssue[];
+}
+
+export interface ClarifyBpmnBody {
+  /** Plain-language description of the business process */
+  description: string;
+}
+
+export interface ClarifyBpmnResponse {
+  needsClarification: boolean;
+  /**
+   * Single focused clarification question if needed
+   * @nullable
+   */
+  question: string | null;
+}
+
+export interface BpmnError {
+  error: string;
+}
