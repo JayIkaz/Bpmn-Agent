@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Workflow, Sparkles, MessageSquare, Code2, Table2, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { Workflow, Sparkles, MessageSquare, Code2, Table2, AlertTriangle, ArrowRight, Loader2, GitBranch } from "lucide-react";
 import { useBpmnWorkflow } from "@/hooks/use-bpmn-workflow";
 import { XmlViewer } from "@/components/XmlViewer";
 import { MappingTable } from "@/components/MappingTable";
 import { IssuesList } from "@/components/IssuesList";
+import { BpmnDiagram } from "@/components/BpmnDiagram";
 
 const DEFAULT_EXAMPLE = `A customer places an order on our webshop.
 If the items are in stock, the warehouse picks and packs the order. If they are out of stock, the purchasing department orders more items from the supplier and we wait until they arrive before packing.
 After packing, the shipping department dispatches the package and the customer receives an email notification.`;
 
-type TabType = 'xml' | 'mapping' | 'issues';
+type TabType = 'diagram' | 'xml' | 'mapping' | 'issues';
 
 export default function Home() {
   const { state, startWorkflow, submitAnswerAndConvert, description, setDescription } = useBpmnWorkflow();
   const [answerInput, setAnswerInput] = useState("");
-  const [activeTab, setActiveTab] = useState<TabType>('xml');
+  const [activeTab, setActiveTab] = useState<TabType>('diagram');
 
   // Initialize with example on mount
   useState(() => {
@@ -187,6 +188,12 @@ export default function Home() {
                   {/* Tabs Header */}
                   <div className="flex px-2 pt-2 bg-muted/30 border-b border-border overflow-x-auto hide-scrollbar">
                     <button
+                      onClick={() => setActiveTab('diagram')}
+                      className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'diagram' ? 'border-primary text-primary bg-background/50 rounded-t-xl' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-t-xl'}`}
+                    >
+                      <GitBranch className="w-4 h-4" /> Diagram
+                    </button>
+                    <button
                       onClick={() => setActiveTab('xml')}
                       className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'xml' ? 'border-primary text-primary bg-background/50 rounded-t-xl' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-t-xl'}`}
                     >
@@ -212,20 +219,49 @@ export default function Home() {
                   </div>
 
                   {/* Tab Content */}
-                  <div className="p-6 flex-1 overflow-y-auto bg-background">
+                  <div className="flex-1 overflow-hidden bg-background relative">
                     <AnimatePresence mode="wait">
+                      {activeTab === 'diagram' && (
+                        <motion.div
+                          key="tab-diagram"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 p-3"
+                        >
+                          <BpmnDiagram xml={state.data.xml} />
+                        </motion.div>
+                      )}
                       {activeTab === 'xml' && (
-                        <motion.div key="tab-xml" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        <motion.div
+                          key="tab-xml"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 p-6 overflow-y-auto"
+                        >
                           <XmlViewer xml={state.data.xml} />
                         </motion.div>
                       )}
                       {activeTab === 'mapping' && (
-                        <motion.div key="tab-mapping" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        <motion.div
+                          key="tab-mapping"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 p-6 overflow-y-auto"
+                        >
                           <MappingTable mapping={state.data.elementMapping} />
                         </motion.div>
                       )}
                       {activeTab === 'issues' && (
-                        <motion.div key="tab-issues" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        <motion.div
+                          key="tab-issues"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 p-6 overflow-y-auto"
+                        >
                           <IssuesList issues={state.data.issues} />
                         </motion.div>
                       )}
