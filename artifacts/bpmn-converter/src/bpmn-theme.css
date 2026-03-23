@@ -1,0 +1,98 @@
+/*
+ * Visio-style theme overrides for bpmn-js
+ * Applied on top of the default bpmn-js.css / diagram-js.css imports.
+ */
+
+/* ─── Canvas background ─────────────────────────────────────── */
+.bpmn-canvas .djs-container {
+  background: #f8fafc !important; /* slate-50 */
+}
+
+/* ─── Tasks (rounded rectangles) ────────────────────────────── */
+/* Target shapes that are NOT pools or lanes (which have .djs-frame) */
+.bpmn-canvas .djs-shape:not(.djs-frame) .djs-visual rect {
+  fill: #eff6ff !important;         /* blue-50 */
+  stroke: #3b82f6 !important;       /* blue-500 */
+  stroke-width: 1.5px !important;
+  rx: 6px !important;
+  ry: 6px !important;
+}
+
+/* ─── Gateways (diamonds) ───────────────────────────────────── */
+.bpmn-canvas .djs-shape .djs-visual polygon {
+  fill: #fefce8 !important;         /* yellow-50 */
+  stroke: #ca8a04 !important;       /* yellow-600 */
+  stroke-width: 1.5px !important;
+}
+
+/* ─── Events: start (green) ─────────────────────────────────── */
+/* All circles get a base green-start style; end events are overridden via stroke-width */
+.bpmn-canvas .djs-shape .djs-visual > g > circle,
+.bpmn-canvas .djs-shape .djs-visual circle.djs-outline {
+  fill: #f0fdf4 !important;         /* green-50 */
+  stroke: #16a34a !important;       /* green-600 */
+  stroke-width: 1.5px !important;
+}
+
+/* End events have a thick border — raise stroke-width to replicate that */
+.bpmn-canvas .djs-shape .djs-visual > g > circle[stroke-width="4"],
+.bpmn-canvas .djs-shape .djs-visual > g > circle[stroke-width="3"] {
+  fill: #fff1f2 !important;         /* red-50 */
+  stroke: #dc2626 !important;       /* red-600 */
+  stroke-width: 4px !important;
+}
+
+/* ─── Pools and lanes ───────────────────────────────────────── */
+.bpmn-canvas .djs-shape.djs-frame .djs-visual rect {
+  fill: #f8fafc !important;         /* slate-50 - pool/lane background */
+  stroke: #94a3b8 !important;       /* slate-400 */
+  stroke-width: 1px !important;
+}
+
+/* ─── Sequence flow arrows ──────────────────────────────────── */
+.bpmn-canvas .djs-connection .djs-visual path {
+  stroke: #475569 !important;       /* slate-600 */
+  stroke-width: 1.5px !important;
+}
+
+/* Arrow marker color */
+.bpmn-canvas .djs-connection .djs-visual polyline,
+.bpmn-canvas .djs-connection .djs-visual polygon {
+  stroke: #475569 !important;
+  fill: #475569 !important;
+}
+
+/* ─── Labels ────────────────────────────────────────────────── */
+.bpmn-canvas .djs-label text,
+.bpmn-canvas .djs-element text {
+  font-family: 'Inter', 'Segoe UI', sans-serif !important;
+  font-size: 12px !important;
+  fill: #1e293b !important;         /* slate-800 */
+}
+
+/* Sequence flow condition labels */
+.bpmn-canvas .djs-connection .djs-label text {
+  font-size: 11px !important;
+  fill: #475569 !important;         /* slate-600 */
+  font-style: italic;
+}
+
+/* ─── Task type icons (user/service/send etc.) ──────────────── */
+/* The task-type marker sits inside .djs-shape as a path */
+.bpmn-canvas .djs-shape:not(.djs-frame) .djs-visual path {
+  fill: #3b82f6 !important;         /* blue-500 - task type icons */
+  stroke: none !important;
+}
+
+/* Gateway inner marker (X, +, O) */
+.bpmn-canvas .djs-shape .djs-visual path[style*="stroke"] {
+  fill: none !important;
+  stroke: #ca8a04 !important;
+}
+
+/* ─── Hover highlight ───────────────────────────────────────── */
+.bpmn-canvas .djs-element:hover .djs-outline {
+  stroke: #2563eb !important;       /* blue-600 */
+  stroke-width: 2px !important;
+  fill: none !important;
+}
