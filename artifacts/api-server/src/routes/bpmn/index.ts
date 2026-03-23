@@ -99,29 +99,30 @@ Every XML output MUST include a complete <bpmndi:BPMNDiagram> section.
 ### Coordinate Grid
 - Pool starts at: x=150, y=80
 - Lane label column width: 30px (content area starts at x=180)
-- Lane height: 140px per lane (taller than before for visual breathing room)
-- Horizontal spacing between element centers: 180px
-- First element center: x=280
-- Element y-center in lane: lane_top_y + 70 (vertically centered)
+- Lane height: 160px per lane — generous vertical space so labels never overlap
+- Horizontal spacing between element centers: 220px — generous horizontal spacing so labels have room
+- First element center: x=310
+- Element y-center in lane: lane_top_y + 80 (vertically centered)
 
-### Element Sizes
+### Element Sizes — IMPORTANT: use these exact dimensions
 - startEvent / endEvent: 36 × 36
-- userTask / serviceTask / sendTask / receiveTask / scriptTask / businessRuleTask / manualTask: 110 × 80
+- userTask / serviceTask / sendTask / receiveTask / scriptTask / businessRuleTask / manualTask: 140 × 80
+  (140px wide gives enough room for labels up to ~20 characters without wrapping)
 - exclusiveGateway / parallelGateway / inclusiveGateway: 50 × 50
-- textAnnotation: 120 × 60 (position above/beside the annotated element)
+- textAnnotation: 150 × 60 (position above/beside the annotated element)
 
 ### Bounds Formula
 For element at flow-position P (0-based) in lane index L (0-based):
-  center_x = 280 + P × 180
-  center_y = 80 + L × 140 + 70
+  center_x = 310 + P × 220
+  center_y = 80 + L × 160 + 80
   bounds.x = center_x − (width / 2)
   bounds.y = center_y − (height / 2)
 
 ### Pool & Lane Bounds
-  pool_height = num_lanes × 140
-  pool_width = (max_elements_in_flow + 1) × 180 + 80
+  pool_height = num_lanes × 160
+  pool_width = (max_elements_in_flow + 1) × 220 + 80
   pool: x=150, y=80, width=pool_width, height=pool_height
-  lane L: x=180, y=(80 + L×140), width=(pool_width − 30), height=140
+  lane L: x=180, y=(80 + L×160), width=(pool_width − 30), height=160
 
 ### Edges
 - Same lane: waypoint right-center of source → left-center of target
