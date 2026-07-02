@@ -22,26 +22,22 @@ export function MappingTable({ mapping }: MappingTableProps) {
               <th className="px-4 py-3 font-semibold text-foreground">Original Step</th>
               <th className="px-4 py-3 font-semibold text-foreground">BPMN Element</th>
               <th className="px-4 py-3 font-semibold text-foreground">Type</th>
-              <th className="px-4 py-3 font-semibold text-foreground">Actor / Lane</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {mapping.map((row, idx) => (
               <tr key={idx} className="hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 align-top text-muted-foreground max-w-xs truncate" title={row.step}>
-                  {row.step}
+                <td className="px-4 py-3 align-top text-muted-foreground max-w-xs" title={row.originalStep}>
+                  {row.originalStep}
                 </td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-primary/90">
-                  {row.bpmnElement}
-                  <div className="text-[10px] text-muted-foreground/60 mt-0.5">{row.elementId}</div>
+                  {row.bpmnName}
+                  <div className="text-[10px] text-muted-foreground/60 mt-0.5">{row.bpmnId}</div>
                 </td>
                 <td className="px-4 py-3 align-top">
                   <span className="inline-flex items-center px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
                     {row.type}
                   </span>
-                </td>
-                <td className="px-4 py-3 align-top text-foreground font-medium">
-                  {row.actor || "System"}
                 </td>
               </tr>
             ))}

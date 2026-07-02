@@ -7,9 +7,8 @@
  */
 
 export interface BpmnElementMapping {
-  step: string;
-  elementId: string;
-  bpmnElement: string;
+  originalStep: string;
+  bpmnId: string;
+  bpmnName: string;
   type: string;
-  actor: string;
 }

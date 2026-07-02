@@ -28,11 +28,10 @@ export interface ConvertBpmnBody {
 }
 
 export interface BpmnElementMapping {
-  step: string;
-  elementId: string;
-  bpmnElement: string;
+  originalStep: string;
+  bpmnId: string;
+  bpmnName: string;
   type: string;
-  actor: string;
 }
 
 export type BpmnIssueSeverity =
@@ -45,16 +44,20 @@ export const BpmnIssueSeverity = {
 
 export interface BpmnIssue {
   severity: BpmnIssueSeverity;
-  message: string;
+  description: string;
+  choiceMade: string;
+  alternativeIfWrong: string;
 }
 
 export interface ConvertBpmnResponse {
   /** Valid BPMN 2.0 XML */
-  xml: string;
+  bpmnXml: string;
   /** Table mapping input steps to BPMN elements */
   elementMapping: BpmnElementMapping[];
   /** Assumptions made and issues detected */
-  issues: BpmnIssue[];
+  issuesAndAssumptions: BpmnIssue[];
+  /** Short title inferred from the process description */
+  processTitle: string;
 }
 
 export interface ClarifyBpmnBody {

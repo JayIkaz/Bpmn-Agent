@@ -185,6 +185,14 @@ export default function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   className="flex flex-col h-full bg-card rounded-3xl border border-border shadow-xl overflow-hidden shadow-black/5"
                 >
+                  {/* Process title */}
+                  {state.data.processTitle && (
+                    <div className="px-5 pt-4 pb-1">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Process</p>
+                      <h2 className="text-base font-bold text-foreground leading-tight mt-0.5">{state.data.processTitle}</h2>
+                    </div>
+                  )}
+
                   {/* Tabs Header */}
                   <div className="flex px-2 pt-2 bg-muted/30 border-b border-border overflow-x-auto hide-scrollbar">
                     <button
@@ -210,9 +218,9 @@ export default function Home() {
                       className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'issues' ? 'border-primary text-primary bg-background/50 rounded-t-xl' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-t-xl'}`}
                     >
                       <AlertTriangle className="w-4 h-4" /> Issues & Assumptions
-                      {state.data.issues.length > 0 && (
+                      {state.data.issuesAndAssumptions.length > 0 && (
                         <span className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 text-[10px] font-bold">
-                          {state.data.issues.length}
+                          {state.data.issuesAndAssumptions.length}
                         </span>
                       )}
                     </button>
@@ -229,7 +237,7 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-3"
                         >
-                          <BpmnDiagram xml={state.data.xml} />
+                          <BpmnDiagram xml={state.data.bpmnXml} />
                         </motion.div>
                       )}
                       {activeTab === 'xml' && (
@@ -240,7 +248,7 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-6 overflow-y-auto"
                         >
-                          <XmlViewer xml={state.data.xml} />
+                          <XmlViewer xml={state.data.bpmnXml} />
                         </motion.div>
                       )}
                       {activeTab === 'mapping' && (
@@ -262,7 +270,7 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-6 overflow-y-auto"
                         >
-                          <IssuesList issues={state.data.issues} />
+                          <IssuesList issues={state.data.issuesAndAssumptions} />
                         </motion.div>
                       )}
                     </AnimatePresence>

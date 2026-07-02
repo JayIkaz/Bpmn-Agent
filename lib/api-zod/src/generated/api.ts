@@ -29,26 +29,30 @@ export const ConvertToBpmnBody = zod.object({
 });
 
 export const ConvertToBpmnResponse = zod.object({
-  xml: zod.string().describe("Valid BPMN 2.0 XML"),
+  bpmnXml: zod.string().describe("Valid BPMN 2.0 XML"),
   elementMapping: zod
     .array(
       zod.object({
-        step: zod.string(),
-        elementId: zod.string(),
-        bpmnElement: zod.string(),
+        originalStep: zod.string(),
+        bpmnId: zod.string(),
+        bpmnName: zod.string(),
         type: zod.string(),
-        actor: zod.string(),
       }),
     )
     .describe("Table mapping input steps to BPMN elements"),
-  issues: zod
+  issuesAndAssumptions: zod
     .array(
       zod.object({
         severity: zod.enum(["assumption", "issue"]),
-        message: zod.string(),
+        description: zod.string(),
+        choiceMade: zod.string(),
+        alternativeIfWrong: zod.string(),
       }),
     )
     .describe("Assumptions made and issues detected"),
+  processTitle: zod
+    .string()
+    .describe("Short title inferred from the process description"),
 });
 
 /**

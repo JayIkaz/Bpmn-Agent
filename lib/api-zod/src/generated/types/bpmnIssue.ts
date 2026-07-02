@@ -9,5 +9,7 @@ import type { BpmnIssueSeverity } from "./bpmnIssueSeverity";
 
 export interface BpmnIssue {
   severity: BpmnIssueSeverity;
-  message: string;
+  description: string;
+  choiceMade: string;
+  alternativeIfWrong: string;
 }
