@@ -73,15 +73,16 @@ Use these rules to compute all x/y/width/height values. Every element must have 
 - Pool starts at: x=150, y=80
 - Lane label column width: 30px (content area starts at x=180)
 - Lane height: 160px per lane — generous vertical space so labels never overlap
+- Pool height = numberOfLanes × 160. Never hard-code a pool height — it must always exactly equal the number of lanes × 160, with no leftover gap and no lane cut off.
 
 **Horizontal positioning**
-Assign each element a flow-position P starting at P=0 (start event). Each subsequent step increments P by 1. Gateway opening and closing nodes each count as one position.
+Assign each element a flow-position P starting at P=0 (start event). Each subsequent step increments P by 1. Gateway opening and closing nodes each count as one position. CRITICAL: compute max_P only AFTER laying out every single element in the process, including elements after a gateway merge/join, parallel branches that reconverge, and final tasks/end events — max_P is the highest P used by ANY element in the entire diagram, not just the elements before the last branch.
 - First element center_x = 310 (i.e. 310 + 0 × 220)
 - General formula: center_x = 310 + P × 220
 - Pool width = (max_P + 2) × 220 + 80. Never hard-code a pool width.
 
 **Vertical positioning**
-Assign each lane an index L starting at L=0 (top).
+Assign each lane an index L starting at L=0 (top), where L ranges from 0 to numberOfLanes−1 with no gaps or skipped indices.
 - Element center_y = 80 + L × 160 + 80
 - bounds.x = center_x − (width / 2)
 - bounds.y = center_y − (height / 2)
@@ -91,6 +92,9 @@ Assign each lane an index L starting at L=0 (top).
 - Same lane: waypoint right-center of source → left-center of target
 - Cross-lane: add intermediate waypoint at mid-x between the two elements, at target lane center_y
 - For join gateways: multiple incoming edges converge correctly with waypoints
+
+**Mandatory self-check before output**
+Before returning the JSON, verify for every single flow node (task, event, gateway) that its full shape rectangle (x, y, x+width, y+height) is entirely contained within the rectangle of the lane it belongs to (the lane's own x, y, x+width, y+height). If any element's bounds extend beyond its lane's bounds in any direction — including elements after gateway merges, the final steps before an end event, or elements reached via long branches — recompute that element's P (and/or extend the pool/lane width) until every element fits fully inside its lane with no overflow. Never let a shape or its edges render outside the swimlane it belongs to.
 
 ---
 

@@ -43,6 +43,29 @@ function localName(tag: string): string {
   return tag.includes(":") ? tag.split(":")[1] : tag;
 }
 
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function num(v: unknown): number | null {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+function getShapeBounds(shape: any): Rect | null {
+  const b = shape?.["dc:Bounds"] ?? shape?.["Bounds"];
+  if (!b) return null;
+  const x = num(b["@_x"]);
+  const y = num(b["@_y"]);
+  const width = num(b["@_width"]);
+  const height = num(b["@_height"]);
+  if (x == null || y == null || width == null || height == null) return null;
+  return { x, y, width, height };
+}
+
 /**
  * Validates BPMN 2.0 XML for the structural requirements the system prompt
  * demands. This is intentionally conservative: it only flags issues that
@@ -184,6 +207,61 @@ export function validateBpmnXml(xml: string): BpmnValidationResult {
         if (waypoints.length < 2) {
           errors.push(
             `Edge for "${edge["@_bpmnElement"] ?? "unknown flow"}" has fewer than 2 waypoints.`,
+          );
+        }
+      }
+
+      // Geometric check: every flow node must be fully contained within the
+      // bounds of the lane it belongs to. This catches the common failure
+      // mode where the AI's flow-position math overflows the pool/lane
+      // width or height, causing elements to render outside the swimlanes.
+      const laneFlowNodeMap = new Map<string, string>();
+      for (const process of processes) {
+        const laneSets = asArray(process["bpmn:laneSet"] ?? process["laneSet"]);
+        for (const laneSet of laneSets) {
+          const lanes = asArray(laneSet["bpmn:lane"] ?? laneSet["lane"]);
+          for (const lane of lanes) {
+            const laneId = lane["@_id"];
+            if (!laneId) continue;
+            const refs = asArray(lane["bpmn:flowNodeRef"] ?? lane["flowNodeRef"]);
+            for (const ref of refs) {
+              const refId = typeof ref === "string" ? ref : (ref as any)?.["#text"];
+              if (refId) laneFlowNodeMap.set(refId, laneId);
+            }
+          }
+        }
+      }
+
+      if (laneFlowNodeMap.size > 0) {
+        const boundsByElementId = new Map<string, Rect>();
+        for (const shape of shapes) {
+          const ref = shape["@_bpmnElement"];
+          const rect = getShapeBounds(shape);
+          if (ref && rect) boundsByElementId.set(ref, rect);
+        }
+
+        const TOLERANCE = 2;
+        const overflowIds: string[] = [];
+        for (const [nodeId, laneId] of laneFlowNodeMap) {
+          const nodeRect = boundsByElementId.get(nodeId);
+          const laneRect = boundsByElementId.get(laneId);
+          if (!nodeRect || !laneRect) continue;
+
+          const fitsHorizontally =
+            nodeRect.x >= laneRect.x - TOLERANCE &&
+            nodeRect.x + nodeRect.width <= laneRect.x + laneRect.width + TOLERANCE;
+          const fitsVertically =
+            nodeRect.y >= laneRect.y - TOLERANCE &&
+            nodeRect.y + nodeRect.height <= laneRect.y + laneRect.height + TOLERANCE;
+
+          if (!fitsHorizontally || !fitsVertically) {
+            overflowIds.push(nodeId);
+          }
+        }
+
+        if (overflowIds.length > 0) {
+          errors.push(
+            `The following elements render outside the bounds of their swimlane: ${overflowIds.join(", ")}. Every element's shape (and the pool/lane width and height) must be recomputed so all flow nodes are fully contained within their assigned lane, with no overflow.`,
           );
         }
       }

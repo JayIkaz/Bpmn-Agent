@@ -3,6 +3,7 @@ import {
   ZoomIn, ZoomOut, Maximize2, Download, MousePointer2,
   Copy, X, Tag, User, Settings, Send, Mail, Scroll,
   BookOpen, Hand, Play, Square, Diamond, ClipboardCopy, ImageDown,
+  Expand, Shrink,
 } from "lucide-react";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
@@ -46,6 +47,7 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<SelectedElement | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || !xml) return;
@@ -131,6 +133,28 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
     };
   }, [xml]);
 
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    document.body.style.overflow = "hidden";
+
+    const refit = () => viewerRef.current?.get("canvas").zoom("fit-viewport");
+    const t = setTimeout(refit, 60);
+    window.addEventListener("resize", refit);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      clearTimeout(t);
+      window.removeEventListener("resize", refit);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
+
   const zoom = (factor: number) => {
     if (!viewerRef.current) return;
     const canvas = viewerRef.current.get("canvas");
@@ -214,7 +238,13 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
   const meta = selected ? (BPMN_TYPE_META[selected.type] ?? { label: selected.type.replace("bpmn:", ""), color: "bg-slate-100 text-slate-600", Icon: Tag }) : null;
 
   return (
-    <div className="relative w-full h-full flex flex-col bpmn-canvas-host">
+    <div
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-[100] flex flex-col bpmn-canvas-host bg-white"
+          : "relative w-full h-full flex flex-col bpmn-canvas-host"
+      }
+    >
 
       {/* Toolbar */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl p-1.5 shadow-sm">
@@ -227,6 +257,14 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
         </button>
         <button onClick={downloadSvg} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800" title="Download SVG"><Download className="w-4 h-4" /></button>
         <button onClick={downloadPng} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800" title="Download PNG"><ImageDown className="w-4 h-4" /></button>
+        <div className="w-px h-5 bg-slate-200 mx-0.5" />
+        <button
+          onClick={() => setIsFullscreen((f) => !f)}
+          className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800"
+          title={isFullscreen ? "Exit full screen" : "Full screen"}
+        >
+          {isFullscreen ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Hint */}
