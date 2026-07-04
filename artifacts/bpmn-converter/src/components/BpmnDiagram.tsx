@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ZoomIn, ZoomOut, Maximize2, Download, MousePointer2,
   Copy, X, Tag, User, Settings, Send, Mail, Scroll,
-  BookOpen, Hand, Play, Square, Diamond, ClipboardCopy,
+  BookOpen, Hand, Play, Square, Diamond, ClipboardCopy, ImageDown,
 } from "lucide-react";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
@@ -148,6 +148,60 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
     });
   };
 
+  const downloadPng = () => {
+    viewerRef.current?.saveSVG().then(({ svg }: { svg: string }) => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svg, "image/svg+xml");
+      const svgEl = doc.documentElement;
+
+      let width = parseFloat(svgEl.getAttribute("width") || "");
+      let height = parseFloat(svgEl.getAttribute("height") || "");
+
+      if (!width || !height) {
+        const viewBox = svgEl.getAttribute("viewBox");
+        if (viewBox) {
+          const parts = viewBox.split(/\s+/).map(Number);
+          width = width || parts[2];
+          height = height || parts[3];
+        }
+      }
+
+      width = width || 800;
+      height = height || 600;
+
+      const scale = 2;
+      const svgString = new XMLSerializer().serializeToString(svgEl);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { URL.revokeObjectURL(url); return; }
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const pngUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = pngUrl;
+          a.download = "bpmn-diagram.png";
+          a.click();
+          URL.revokeObjectURL(pngUrl);
+        }, "image/png");
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  };
+
   const copySvg = () => {
     viewerRef.current?.saveSVG().then(({ svg }: { svg: string }) => {
       navigator.clipboard.writeText(svg).then(() => {
@@ -172,6 +226,7 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
           {copied ? <ClipboardCopy className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         </button>
         <button onClick={downloadSvg} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800" title="Download SVG"><Download className="w-4 h-4" /></button>
+        <button onClick={downloadPng} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800" title="Download PNG"><ImageDown className="w-4 h-4" /></button>
       </div>
 
       {/* Hint */}
