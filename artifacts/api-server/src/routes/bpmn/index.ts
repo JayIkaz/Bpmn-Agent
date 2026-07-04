@@ -4,6 +4,7 @@ import {
   ConvertToBpmnBody,
   ClarifyBpmnBody,
 } from "@workspace/api-zod";
+import { validateBpmnXml } from "./validate-bpmn-xml.js";
 
 const router: IRouter = Router();
 
@@ -208,6 +209,51 @@ router.post("/bpmn/clarify", async (req, res): Promise<void> => {
   });
 });
 
+interface BpmnConversionResult {
+  bpmnXml?: string;
+  elementMapping?: Array<{
+    originalStep: string;
+    bpmnId: string;
+    bpmnName: string;
+    type: string;
+  }>;
+  issuesAndAssumptions?: Array<{
+    severity: string;
+    description: string;
+    choiceMade: string;
+    alternativeIfWrong: string;
+  }>;
+  processTitle?: string;
+}
+
+async function requestBpmnConversion(
+  messages: Array<{ role: "system" | "user"; content: string }>,
+): Promise<
+  | { ok: true; result: BpmnConversionResult }
+  | { ok: false; error: string }
+> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    max_completion_tokens: 8192,
+    messages,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content ?? "{}";
+  let result: BpmnConversionResult;
+  try {
+    result = JSON.parse(content);
+  } catch {
+    return { ok: false, error: "Failed to parse AI response as JSON" };
+  }
+
+  if (!result.bpmnXml) {
+    return { ok: false, error: "AI did not return any BPMN XML" };
+  }
+
+  return { ok: true, result };
+}
+
 router.post("/bpmn/convert", async (req, res): Promise<void> => {
   const parsed = ConvertToBpmnBody.safeParse(req.body);
   if (!parsed.success) {
@@ -225,50 +271,63 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
     userMessage = `${description}\n\nAdditional clarifications:\n${answersText}`;
   }
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.2",
-    max_completion_tokens: 8192,
-    messages: [
-      { role: "system", content: BPMN_SYSTEM_PROMPT },
-      { role: "user", content: userMessage },
-    ],
-    response_format: { type: "json_object" },
-  });
+  const messages: Array<{ role: "system" | "user"; content: string }> = [
+    { role: "system", content: BPMN_SYSTEM_PROMPT },
+    { role: "user", content: userMessage },
+  ];
 
-  const content = completion.choices[0]?.message?.content ?? "{}";
-  let result: {
-    bpmnXml?: string;
-    elementMapping?: Array<{
-      originalStep: string;
-      bpmnId: string;
-      bpmnName: string;
-      type: string;
-    }>;
-    issuesAndAssumptions?: Array<{
-      severity: string;
-      description: string;
-      choiceMade: string;
-      alternativeIfWrong: string;
-    }>;
-    processTitle?: string;
-  };
-  try {
-    result = JSON.parse(content);
-  } catch {
-    res.status(500).json({ error: "Failed to parse AI response" });
-    return;
+  const firstAttempt = await requestBpmnConversion(messages);
+
+  let finalResult: BpmnConversionResult | null = null;
+  let lastError: string | null = null;
+
+  if (!firstAttempt.ok) {
+    lastError = firstAttempt.error;
+  } else {
+    const validation = validateBpmnXml(firstAttempt.result.bpmnXml!);
+    if (validation.valid) {
+      finalResult = firstAttempt.result;
+    } else {
+      lastError = `Generated BPMN XML failed validation: ${validation.errors.join("; ")}`;
+    }
   }
 
-  if (!result.bpmnXml) {
-    res.status(500).json({ error: "AI did not return valid BPMN XML" });
+  if (!finalResult) {
+    // Retry once with an error hint appended to the prompt.
+    const retryMessages: Array<{ role: "system" | "user"; content: string }> = [
+      ...messages,
+      {
+        role: "user",
+        content: `Your previous response was invalid. Fix the following problem(s) and return a complete, corrected JSON object with the same four keys:\n${lastError}`,
+      },
+    ];
+
+    const retryAttempt = await requestBpmnConversion(retryMessages);
+
+    if (!retryAttempt.ok) {
+      lastError = retryAttempt.error;
+    } else {
+      const validation = validateBpmnXml(retryAttempt.result.bpmnXml!);
+      if (validation.valid) {
+        finalResult = retryAttempt.result;
+      } else {
+        lastError = `Generated BPMN XML failed validation: ${validation.errors.join("; ")}`;
+      }
+    }
+  }
+
+  if (!finalResult) {
+    res.status(500).json({
+      error: `We couldn't generate a valid BPMN diagram for this description. ${lastError ?? "Please try rephrasing your process description."}`,
+    });
     return;
   }
 
   res.json({
-    bpmnXml: result.bpmnXml,
-    elementMapping: result.elementMapping ?? [],
-    issuesAndAssumptions: result.issuesAndAssumptions ?? [],
-    processTitle: result.processTitle ?? "",
+    bpmnXml: finalResult.bpmnXml,
+    elementMapping: finalResult.elementMapping ?? [],
+    issuesAndAssumptions: finalResult.issuesAndAssumptions ?? [],
+    processTitle: finalResult.processTitle ?? "",
   });
 });
 

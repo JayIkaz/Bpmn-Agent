@@ -152,7 +152,23 @@ export default function Home() {
           {/* Right Column: Output */}
           <div className="lg:col-span-7 relative">
             <AnimatePresence mode="wait">
-              {state.status === "idle" || state.status === "clarifying" || state.status === "needs_answer" || state.status === "error" ? (
+              {state.status === "error" ? (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="h-full min-h-[500px] flex flex-col items-center justify-center p-8 border-2 border-dashed border-red-200 dark:border-red-900/40 rounded-3xl bg-red-50/40 dark:bg-red-950/10"
+                >
+                  <div className="w-20 h-20 mb-6 rounded-2xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-red-500 dark:text-red-400">
+                    <AlertTriangle className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-red-700 dark:text-red-300">Couldn't generate diagram</h3>
+                  <p className="text-center text-red-700/80 dark:text-red-300/80 mt-2 max-w-md text-sm leading-relaxed">
+                    {state.error}
+                  </p>
+                </motion.div>
+              ) : state.status === "idle" || state.status === "clarifying" || state.status === "needs_answer" ? (
                 <motion.div
                   key="empty"
                   initial={{ opacity: 0 }}
