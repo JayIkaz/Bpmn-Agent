@@ -11,6 +11,12 @@ out-tsc
 # dependencies
 node_modules
 
+# playwright
+test-results
+playwright-report
+blob-report
+playwright/.cache
+
 # IDEs and editors
 /.idea
 .project
