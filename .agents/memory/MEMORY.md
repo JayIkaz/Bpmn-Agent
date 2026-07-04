@@ -1,0 +1,1 @@
+- [SPA rewrite testing gotcha](spa-static-hosting-rewrites.md) — `vite preview`/`pnpm run serve` always 200s unknown paths regardless of artifact.toml rewrites; can't be used to verify real production 404 behavior.

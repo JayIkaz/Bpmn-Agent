@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Workflow, Sparkles, MessageSquare, Code2, Table2, AlertTriangle, ArrowRight, Loader2, GitBranch } from "lucide-react";
 import { useBpmnWorkflow } from "@/hooks/use-bpmn-workflow";
-import { XmlViewer } from "@/components/XmlViewer";
-import { MappingTable } from "@/components/MappingTable";
-import { IssuesList } from "@/components/IssuesList";
-import { BpmnDiagram } from "@/components/BpmnDiagram";
+
+const XmlViewer = lazy(() => import("@/components/XmlViewer").then((m) => ({ default: m.XmlViewer })));
+const MappingTable = lazy(() => import("@/components/MappingTable").then((m) => ({ default: m.MappingTable })));
+const IssuesList = lazy(() => import("@/components/IssuesList").then((m) => ({ default: m.IssuesList })));
+const BpmnDiagram = lazy(() => import("@/components/BpmnDiagram").then((m) => ({ default: m.BpmnDiagram })));
+
+function TabFallback() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+    </div>
+  );
+}
 
 const DEFAULT_EXAMPLE = `A customer places an order on our webshop.
 If the items are in stock, the warehouse picks and packs the order. If they are out of stock, the purchasing department orders more items from the supplier and we wait until they arrive before packing.
@@ -237,7 +246,9 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-3"
                         >
-                          <BpmnDiagram xml={state.data.bpmnXml} />
+                          <Suspense fallback={<TabFallback />}>
+                            <BpmnDiagram xml={state.data.bpmnXml} />
+                          </Suspense>
                         </motion.div>
                       )}
                       {activeTab === 'xml' && (
@@ -248,7 +259,9 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-6 overflow-y-auto"
                         >
-                          <XmlViewer xml={state.data.bpmnXml} />
+                          <Suspense fallback={<TabFallback />}>
+                            <XmlViewer xml={state.data.bpmnXml} />
+                          </Suspense>
                         </motion.div>
                       )}
                       {activeTab === 'mapping' && (
@@ -259,7 +272,9 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-6 overflow-y-auto"
                         >
-                          <MappingTable mapping={state.data.elementMapping} />
+                          <Suspense fallback={<TabFallback />}>
+                            <MappingTable mapping={state.data.elementMapping} />
+                          </Suspense>
                         </motion.div>
                       )}
                       {activeTab === 'issues' && (
@@ -270,7 +285,9 @@ export default function Home() {
                           exit={{ opacity: 0 }}
                           className="absolute inset-0 p-6 overflow-y-auto"
                         >
-                          <IssuesList issues={state.data.issuesAndAssumptions} />
+                          <Suspense fallback={<TabFallback />}>
+                            <IssuesList issues={state.data.issuesAndAssumptions} />
+                          </Suspense>
                         </motion.div>
                       )}
                     </AnimatePresence>

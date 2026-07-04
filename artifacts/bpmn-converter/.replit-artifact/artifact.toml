@@ -22,10 +22,6 @@ build = [ "pnpm", "--filter", "@workspace/bpmn-converter", "run", "build" ]
 publicDir = "artifacts/bpmn-converter/dist/public"
 serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
-
 [services.env]
 PORT = "19187"
 BASE_PATH = "/"

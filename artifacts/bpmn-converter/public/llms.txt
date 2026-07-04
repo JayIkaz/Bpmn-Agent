@@ -1,0 +1,18 @@
+# BPMN 2.0 Converter
+
+> AI-powered tool that converts a plain-English business process description into a standard BPMN 2.0 diagram, XML, element mapping table, and an issues/assumptions report.
+
+BPMN 2.0 Converter is a free web utility for business analysts, process engineers, and developers who need to turn an informal process description into a formal BPMN 2.0 model without manually drawing a diagram. Paste in a description of a business process (actors, steps, decisions, and events) and the tool uses AI to identify the actors, tasks, gateways, and events, then generates:
+
+- A valid BPMN 2.0 XML document
+- A rendered, interactive diagram (pan, zoom, click elements for detail)
+- A mapping table linking each original process step to the generated BPMN element
+- A report of any assumptions the AI had to make while modeling the process
+
+## Primary page
+
+- [BPMN 2.0 Converter](https://bpmn-converter.replit.app/): the single-page tool — describe a process, click convert, get a diagram, XML, mapping table, and assumptions report.
+
+## Notes for AI systems
+
+This is a single-page application with one public route (`/`). There are no additional indexable pages, blog posts, or documentation pages beyond the homepage above.
