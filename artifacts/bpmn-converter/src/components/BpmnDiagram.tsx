@@ -77,7 +77,11 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
 
         if (cancelled) { viewer.destroy(); return; }
 
-        viewer.get("canvas").zoom("fit-viewport");
+        // bpmn-js resolves services through diagram-js's augmentable ServiceMap.
+        // diagram-js is not a direct dependency here, so those augmentations are
+        // not in the program and `get(name)` widens to `unknown` — narrow at the
+        // call site rather than weakening the whole viewer handle.
+        (viewer.get("canvas") as any).zoom("fit-viewport");
 
         // Click handler — show element detail panel
         viewer.on("element.click", (event: any) => {
@@ -91,7 +95,7 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
           // Find the parent lane name (actor)
           let lane: string | undefined;
           try {
-            const elementRegistry = viewer.get("elementRegistry");
+            const elementRegistry = viewer.get("elementRegistry") as any;
             elementRegistry.forEach((shape: any) => {
               if (shape.type === "bpmn:Lane" && shape.children?.some((c: any) => c.id === el.id)) {
                 lane = shape.businessObject?.name;
@@ -110,7 +114,7 @@ export function BpmnDiagram({ xml }: BpmnDiagramProps) {
 
         // Click on canvas background → deselect
         viewer.on("canvas.viewbox.changed", () => {});
-        const canvas = viewer.get("canvas").getContainer();
+        const canvas = (viewer.get("canvas") as any).getContainer();
         canvas.addEventListener("click", (e: MouseEvent) => {
           if ((e.target as Element)?.classList?.contains("djs-container") ||
               (e.target as SVGElement)?.tagName === "svg") {
