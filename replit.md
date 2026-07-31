@@ -35,7 +35,7 @@ A full-stack AI-powered tool that converts plain-language business process descr
   edges and waypoints. Never reintroduce coordinate maths into the prompt or
   geometry checks into the validator; layout is the layout engine's job.
 - `pnpm --filter @workspace/api-server run verify:layout` exercises validation +
-  layout against a fixed sample, with no OpenAI call.
+  layout against a fixed sample, with no Claude API call.
 
 ## Overview
 
