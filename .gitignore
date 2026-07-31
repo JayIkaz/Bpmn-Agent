@@ -11,6 +11,11 @@ out-tsc
 # dependencies
 node_modules
 
+# secrets — .env holds ANTHROPIC_API_KEY and DATABASE_URL; .env.example is tracked
+.env
+.env.*
+!.env.example
+
 # playwright
 test-results
 playwright-report

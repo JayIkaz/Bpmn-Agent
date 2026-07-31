@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { layoutProcess, LayoutError, type LayoutWarning } from "bpmn-auto-layout";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import type Anthropic from "@anthropic-ai/sdk";
+import * as zod from "zod/v4";
+import { anthropic, BPMN_MODEL } from "../../lib/anthropic.js";
 import {
   ConvertToBpmnBody,
   ClarifyBpmnBody,
@@ -106,30 +108,11 @@ Do not report layout preferences, default event type choices, or naming decision
 
 ## OUTPUT FORMAT
 
-Return a JSON object with exactly these four keys:
+Your response shape is enforced by a schema, so you do not need to describe or
+wrap it. Populate every field:
 
-{
-  "bpmnXml": "<string> Complete, valid semantic BPMN 2.0 XML — no BPMNDiagram section, no coordinates",
-  "elementMapping": [
-    {
-      "originalStep": "<string> phrase from the user input",
-      "bpmnId": "<string> element ID",
-      "bpmnName": "<string> element display name",
-      "type": "<string> BPMN element type"
-    }
-  ],
-  "issuesAndAssumptions": [
-    {
-      "severity": "issue | assumption",
-      "description": "<string>",
-      "choiceMade": "<string>",
-      "alternativeIfWrong": "<string>"
-    }
-  ],
-  "processTitle": "<string> Short title inferred from the input, max 6 words"
-}
-
-Return only this JSON object. No preamble, no markdown fences, no commentary outside the object.`;
+- Give one elementMapping entry per flow node, tracing it back to the phrase in the input it came from.
+- Leave issuesAndAssumptions empty unless the ASSUMPTIONS AND ISSUES rules above say otherwise.`;
 
 const CLARIFY_SYSTEM_PROMPT = `You are a BPMN 2.0 expert. Analyze the given business process description and determine if it is missing critical information needed to generate valid BPMN 2.0 XML.
 
@@ -142,13 +125,96 @@ Rules:
 - Only ask for clarification if the description is GENUINELY ambiguous — not just incomplete in minor ways
 - If a reasonable assumption can be made, do NOT ask for clarification
 - If clarification IS needed, ask only ONE focused question about the most critical missing piece
-- If the description is reasonably clear, return needsClarification: false
+- If the description is reasonably clear, return needsClarification: false`;
 
-Respond with a JSON object:
-{
-  "needsClarification": boolean,
-  "question": string | null
-}`;
+const ClarifyResult = zod.object({
+  needsClarification: zod.boolean(),
+  question: zod
+    .string()
+    .nullable()
+    .describe("The single clarification question, or null if none is needed."),
+});
+
+export const BpmnConversion = zod.object({
+  bpmnXml: zod
+    .string()
+    .describe("Complete semantic BPMN 2.0 XML — no BPMNDiagram section, no coordinates."),
+  elementMapping: zod.array(
+    zod.object({
+      originalStep: zod.string().describe("The phrase from the user's input this came from."),
+      bpmnId: zod.string(),
+      bpmnName: zod.string().describe("The element's display name."),
+      type: zod.string().describe("The BPMN element type, e.g. bpmn:UserTask."),
+    }),
+  ),
+  issuesAndAssumptions: zod.array(
+    zod.object({
+      severity: zod.enum(["issue", "assumption"]),
+      description: zod.string().describe("What was ambiguous or wrong."),
+      choiceMade: zod.string().describe("What was chosen instead, and why."),
+      alternativeIfWrong: zod.string().describe("What the user should change if that choice is wrong."),
+    }),
+  ),
+  processTitle: zod.string().describe("Short title inferred from the input, max 6 words."),
+});
+
+type BpmnConversion = zod.infer<typeof BpmnConversion>;
+
+/**
+ * Builds the `output_config.format` value that constrains generation to a
+ * schema.
+ *
+ * The SDK ships a `zodOutputFormat` helper, but it calls `z.toJSONSchema` on
+ * zod's root export — a zod v4 API. This workspace pins zod 3.25.76, whose root
+ * export is v3, so the helper throws at runtime. Going through the `zod/v4`
+ * subpath (which 3.25.x ships, and which the workspace already standardises on)
+ * produces the same JSON Schema without the version coupling.
+ */
+export function outputFormat(schema: zod.ZodType): { type: "json_schema"; schema: Record<string, unknown> } {
+  const { $schema, ...jsonSchema } = zod.toJSONSchema(schema) as Record<string, unknown>;
+  void $schema; // the API infers the dialect; sending it is unnecessary
+  return { type: "json_schema", schema: jsonSchema };
+}
+
+/**
+ * Reads a schema-constrained response. Generation is constrained to the schema,
+ * so this is a formality — but a refusal or a token cutoff can still leave no
+ * usable payload, and thinking blocks precede the text block that holds it.
+ */
+function readStructured<T>(
+  message: Anthropic.Message,
+  schema: zod.ZodType<T>,
+): { ok: true; value: T } | { ok: false; error: string } {
+  if (message.stop_reason === "refusal") {
+    return { ok: false, error: "The request was declined by the model's safety filters." };
+  }
+  if (message.stop_reason === "max_tokens") {
+    return {
+      ok: false,
+      error: "The response hit the token limit before completing. Try a smaller process.",
+    };
+  }
+
+  const text = message.content.find(
+    (block): block is Anthropic.TextBlock => block.type === "text",
+  )?.text;
+  if (!text) {
+    return { ok: false, error: "The model returned no text content." };
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "The model's response was not valid JSON." };
+  }
+
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: `Response did not match the expected schema: ${parsed.error.message}` };
+  }
+  return { ok: true, value: parsed.data };
+}
 
 router.post("/bpmn/clarify", async (req, res): Promise<void> => {
   const parsed = ClarifyBpmnBody.safeParse(req.body);
@@ -159,73 +225,60 @@ router.post("/bpmn/clarify", async (req, res): Promise<void> => {
 
   const { description } = parsed.data;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.2",
-    max_completion_tokens: 512,
-    messages: [
-      { role: "system", content: CLARIFY_SYSTEM_PROMPT },
-      { role: "user", content: description },
-    ],
-    response_format: { type: "json_object" },
+  // Short, scoped classification — low effort keeps this fast and cheap. The
+  // prompt is well under the 512-token cache minimum, so it is not cached.
+  const message = await anthropic.messages.create({
+    model: BPMN_MODEL,
+    max_tokens: 4096,
+    system: CLARIFY_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: description }],
+    output_config: {
+      effort: "low",
+      format: outputFormat(ClarifyResult),
+    },
   });
 
-  const content = completion.choices[0]?.message?.content ?? "{}";
-  let result: { needsClarification: boolean; question: string | null };
-  try {
-    result = JSON.parse(content);
-  } catch {
-    result = { needsClarification: false, question: null };
-  }
+  const result = readStructured(message, ClarifyResult);
 
-  res.json({
-    needsClarification: result.needsClarification ?? false,
-    question: result.question ?? null,
-  });
+  // Clarification is optional by design — if the model could not answer,
+  // fall through to conversion rather than failing the request.
+  res.json(
+    result.ok
+      ? { needsClarification: result.value.needsClarification, question: result.value.question }
+      : { needsClarification: false, question: null },
+  );
 });
 
-interface BpmnConversionResult {
-  bpmnXml?: string;
-  elementMapping?: Array<{
-    originalStep: string;
-    bpmnId: string;
-    bpmnName: string;
-    type: string;
-  }>;
-  issuesAndAssumptions?: Array<{
-    severity: string;
-    description: string;
-    choiceMade: string;
-    alternativeIfWrong: string;
-  }>;
-  processTitle?: string;
-}
-
 async function requestBpmnConversion(
-  messages: Array<{ role: "system" | "user"; content: string }>,
+  messages: Anthropic.MessageParam[],
 ): Promise<
-  | { ok: true; result: BpmnConversionResult }
+  | { ok: true; result: BpmnConversion }
   | { ok: false; error: string }
 > {
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.2",
-    max_completion_tokens: 8192,
+  // Streamed because thinking plus a full BPMN document can run long, and a
+  // non-streaming request at this max_tokens risks an HTTP timeout. Note
+  // max_tokens caps thinking AND the response together.
+  const stream = anthropic.messages.stream({
+    model: BPMN_MODEL,
+    max_tokens: 32000,
+    system: [
+      {
+        type: "text",
+        text: BPMN_SYSTEM_PROMPT,
+        // The prompt is identical on every request and comfortably over the
+        // 512-token minimum, so it is served from cache at ~0.1x input price.
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages,
-    response_format: { type: "json_object" },
+    output_config: {
+      effort: "high",
+      format: outputFormat(BpmnConversion),
+    },
   });
 
-  const content = completion.choices[0]?.message?.content ?? "{}";
-  let result: BpmnConversionResult;
-  try {
-    result = JSON.parse(content);
-  } catch {
-    return { ok: false, error: "Failed to parse AI response as JSON" };
-  }
-
-  if (!result.bpmnXml) {
-    return { ok: false, error: "AI did not return any BPMN XML" };
-  }
-
-  return { ok: true, result };
+  const result = readStructured(await stream.finalMessage(), BpmnConversion);
+  return result.ok ? { ok: true, result: result.value } : result;
 }
 
 router.post("/bpmn/convert", async (req, res): Promise<void> => {
@@ -245,20 +298,21 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
     userMessage = `${description}\n\nAdditional clarifications:\n${answersText}`;
   }
 
-  const messages: Array<{ role: "system" | "user"; content: string }> = [
-    { role: "system", content: BPMN_SYSTEM_PROMPT },
+  // The system prompt is passed separately (and cached) by
+  // requestBpmnConversion — it is not a message.
+  const messages: Anthropic.MessageParam[] = [
     { role: "user", content: userMessage },
   ];
 
   const firstAttempt = await requestBpmnConversion(messages);
 
-  let finalResult: BpmnConversionResult | null = null;
+  let finalResult: BpmnConversion | null = null;
   let lastError: string | null = null;
 
   if (!firstAttempt.ok) {
     lastError = firstAttempt.error;
   } else {
-    const validation = validateBpmnXml(firstAttempt.result.bpmnXml!);
+    const validation = validateBpmnXml(firstAttempt.result.bpmnXml);
     if (validation.valid) {
       finalResult = firstAttempt.result;
     } else {
@@ -267,12 +321,13 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
   }
 
   if (!finalResult) {
-    // Retry once with an error hint appended to the prompt.
-    const retryMessages: Array<{ role: "system" | "user"; content: string }> = [
+    // Retry once with an error hint appended to the prompt. Only semantic
+    // failures reach here now — the response shape itself is schema-enforced.
+    const retryMessages: Anthropic.MessageParam[] = [
       ...messages,
       {
         role: "user",
-        content: `Your previous response was invalid. Fix the following problem(s) and return a complete, corrected JSON object with the same four keys:\n${lastError}`,
+        content: `Your previous response was structurally invalid BPMN. Fix the following problem(s) and return the corrected process:\n${lastError}`,
       },
     ];
 
@@ -281,7 +336,7 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
     if (!retryAttempt.ok) {
       lastError = retryAttempt.error;
     } else {
-      const validation = validateBpmnXml(retryAttempt.result.bpmnXml!);
+      const validation = validateBpmnXml(retryAttempt.result.bpmnXml);
       if (validation.valid) {
         finalResult = retryAttempt.result;
       } else {
@@ -303,7 +358,7 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
   let laidOutXml: string;
   let layoutWarnings: LayoutWarning[] = [];
   try {
-    const layoutResult = await layoutProcess(finalResult.bpmnXml!);
+    const layoutResult = await layoutProcess(finalResult.bpmnXml);
     laidOutXml = layoutResult.xml;
     layoutWarnings = layoutResult.warnings ?? [];
   } catch (err) {
@@ -321,7 +376,7 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
     return;
   }
 
-  const issuesAndAssumptions = [...(finalResult.issuesAndAssumptions ?? [])];
+  const issuesAndAssumptions = [...finalResult.issuesAndAssumptions];
   for (const warning of layoutWarnings) {
     issuesAndAssumptions.push({
       severity: "assumption",
@@ -335,9 +390,9 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
 
   res.json({
     bpmnXml: laidOutXml,
-    elementMapping: finalResult.elementMapping ?? [],
+    elementMapping: finalResult.elementMapping,
     issuesAndAssumptions,
-    processTitle: finalResult.processTitle ?? "",
+    processTitle: finalResult.processTitle,
   });
 });
 

@@ -9,6 +9,7 @@
  */
 import { layoutProcess } from "bpmn-auto-layout";
 import { validateBpmnXml } from "./validate-bpmn-xml.js";
+import { BpmnConversion, outputFormat } from "./index.js";
 
 /** Shaped exactly as the system prompt asks the model to shape its output. */
 const SEMANTIC_XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -140,6 +141,50 @@ async function main(): Promise<void> {
 
   const bounds = xml.match(/<dc:Bounds/g)?.length ?? 0;
   check(bounds >= SHAPE_IDS.length, `every shape has bounds (found ${bounds})`);
+
+  console.log("\n4. Claude structured-output schema compiles");
+  // No network and no API key: this only checks that the zod schema converts to
+  // a JSON Schema the Messages API will accept, and that the sample parses
+  // against it. Catches a zod-version mismatch in zodOutputFormat at build time
+  // rather than on the first live request.
+  const format = outputFormat(BpmnConversion);
+  const schema = format.schema as Record<string, any>;
+
+  check(format.type === "json_schema", `output format type is json_schema (got "${format.type}")`);
+  check(
+    schema?.additionalProperties === false,
+    "schema sets additionalProperties: false (required by the API)",
+  );
+  for (const field of ["bpmnXml", "elementMapping", "issuesAndAssumptions", "processTitle"]) {
+    check(Boolean(schema?.properties?.[field]), `schema declares ${field}`);
+  }
+
+  const sample = BpmnConversion.safeParse({
+    bpmnXml: SEMANTIC_XML,
+    elementMapping: [
+      { originalStep: "Order placed", bpmnId: "start_orderPlaced", bpmnName: "Order placed", type: "bpmn:StartEvent" },
+    ],
+    issuesAndAssumptions: [
+      {
+        severity: "assumption",
+        description: "d",
+        choiceMade: "c",
+        alternativeIfWrong: "a",
+      },
+    ],
+    processTitle: "Order Fulfilment",
+  });
+  check(sample.success, `a well-formed conversion parses (${sample.success ? "ok" : sample.error?.message})`);
+
+  const badSeverity = BpmnConversion.safeParse({
+    bpmnXml: "<x/>",
+    elementMapping: [],
+    issuesAndAssumptions: [
+      { severity: "critical", description: "d", choiceMade: "c", alternativeIfWrong: "a" },
+    ],
+    processTitle: "t",
+  });
+  check(!badSeverity.success, "an out-of-enum severity is rejected");
 
   if (warnings.length > 0) {
     console.log("\n  layout warnings (not failures):");
