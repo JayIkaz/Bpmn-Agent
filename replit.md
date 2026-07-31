@@ -19,6 +19,15 @@ A full-stack AI-powered tool that converts plain-language business process descr
 - AI: OpenAI GPT-5.2 via Replit AI Integrations (no API key needed)
 - Routes: `POST /api/bpmn/convert`, `POST /api/bpmn/clarify`
 - OpenAI integration: `lib/integrations-openai-ai-server`
+- Diagram layout: `bpmn-auto-layout`. The model emits the **semantic** model only —
+  no `<bpmndi:BPMNDiagram>`, no coordinates. `/bpmn/convert` validates that model
+  structurally (`validate-bpmn-xml.ts` — namespaces, unique IDs, sequence-flow
+  endpoints, gateway flow counts, lane membership), retrying the model once on
+  failure, then pipes it through `layoutProcess()` to generate all shapes, bounds,
+  edges and waypoints. Never reintroduce coordinate maths into the prompt or
+  geometry checks into the validator; layout is the layout engine's job.
+- `pnpm --filter @workspace/api-server run verify:layout` exercises validation +
+  layout against a fixed sample, with no OpenAI call.
 
 ## Overview
 
