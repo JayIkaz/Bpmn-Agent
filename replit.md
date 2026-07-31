@@ -16,9 +16,17 @@ A full-stack AI-powered tool that converts plain-language business process descr
 ### Architecture
 - Frontend: React + Vite at `/` (`artifacts/bpmn-converter`)
 - Backend: Express API server at `/api` (`artifacts/api-server`)
-- AI: OpenAI GPT-5.2 via Replit AI Integrations (no API key needed)
+- AI: Claude Opus 5 via the Anthropic API (`@anthropic-ai/sdk`). Client:
+  `artifacts/api-server/src/lib/anthropic.ts`. Needs `ANTHROPIC_API_KEY` (or an
+  `ant auth login` profile) — see `.env.example`.
 - Routes: `POST /api/bpmn/convert`, `POST /api/bpmn/clarify`
-- OpenAI integration: `lib/integrations-openai-ai-server`
+- Both routes use **structured outputs**: generation is constrained to a zod
+  schema, so responses cannot come back mis-shaped and need no defensive
+  parsing. Schemas live next to the routes; `outputFormat()` converts them via
+  the `zod/v4` subpath rather than the SDK's `zodOutputFormat` helper, which
+  requires zod v4 at the package root and throws against this workspace's pin.
+- `BPMN_SYSTEM_PROMPT` is sent as a cached system block — it is identical on
+  every request and over the 512-token minimum, so it bills at cache-read rates.
 - Diagram layout: `bpmn-auto-layout`. The model emits the **semantic** model only —
   no `<bpmndi:BPMNDiagram>`, no coordinates. `/bpmn/convert` validates that model
   structurally (`validate-bpmn-xml.ts` — namespaces, unique IDs, sequence-flow
@@ -27,7 +35,7 @@ A full-stack AI-powered tool that converts plain-language business process descr
   edges and waypoints. Never reintroduce coordinate maths into the prompt or
   geometry checks into the validator; layout is the layout engine's job.
 - `pnpm --filter @workspace/api-server run verify:layout` exercises validation +
-  layout against a fixed sample, with no OpenAI call.
+  layout against a fixed sample, with no Claude API call.
 
 ## Overview
 
