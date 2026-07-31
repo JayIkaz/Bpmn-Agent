@@ -66,7 +66,7 @@ artifacts-monorepo/
 │   └── db/                 # Drizzle ORM schema + DB connection
 ├── scripts/                # Utility scripts (single workspace package)
 │   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
+├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, scripts)
 ├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
 ├── tsconfig.json           # Root TS project references
 └── package.json            # Root package with hoisted devDeps
@@ -106,10 +106,10 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
 - `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL` — see `.env.example`)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+Apply schema changes with `pnpm --filter @workspace/db run push`, falling back to `pnpm --filter @workspace/db run push-force`. Production migrations used to be handled by Replit on publish; that is now unowned — wire it into whatever deploy pipeline replaces it.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
