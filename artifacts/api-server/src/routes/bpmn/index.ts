@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { layoutProcess, LayoutError, type LayoutWarning } from "bpmn-auto-layout";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   ConvertToBpmnBody,
@@ -60,59 +61,28 @@ Never mix prefix styles. Never use underscores within the camelCase portion.
 
 ---
 
-## LAYOUT CALCULATION
-
-Use these rules to compute all x/y/width/height values. Every element must have explicit bounds — never omit them.
-
-**Grid unit**: 220px horizontal (generous spacing so labels have room), 160px vertical per lane.
-**Task size**: width=140, height=80. (140px wide gives enough room for labels up to ~20 characters without wrapping)
-**Gateway size**: width=50, height=50.
-**Event size**: width=36, height=36.
-
-**Pool & lane setup**
-- Pool starts at: x=150, y=80
-- Lane label column width: 30px (content area starts at x=180)
-- Lane height: 160px per lane — generous vertical space so labels never overlap
-- Pool height = numberOfLanes × 160. Never hard-code a pool height — it must always exactly equal the number of lanes × 160, with no leftover gap and no lane cut off.
-
-**Horizontal positioning**
-Assign each element a flow-position P starting at P=0 (start event). Each subsequent step increments P by 1. Gateway opening and closing nodes each count as one position. CRITICAL: compute max_P only AFTER laying out every single element in the process, including elements after a gateway merge/join, parallel branches that reconverge, and final tasks/end events — max_P is the highest P used by ANY element in the entire diagram, not just the elements before the last branch.
-- First element center_x = 310 (i.e. 310 + 0 × 220)
-- General formula: center_x = 310 + P × 220
-- Pool width = (max_P + 2) × 220 + 80. Never hard-code a pool width.
-
-**Vertical positioning**
-Assign each lane an index L starting at L=0 (top), where L ranges from 0 to numberOfLanes−1 with no gaps or skipped indices.
-- Element center_y = 80 + L × 160 + 80
-- bounds.x = center_x − (width / 2)
-- bounds.y = center_y − (height / 2)
-- lane L: x=180, y=(80 + L×160), width=(pool_width − 30), height=160
-
-**Edges**
-- Same lane: waypoint right-center of source → left-center of target
-- Cross-lane: add intermediate waypoint at mid-x between the two elements, at target lane center_y
-- For join gateways: multiple incoming edges converge correctly with waypoints
-
-**Mandatory self-check before output**
-Before returning the JSON, verify for every single flow node (task, event, gateway) that its full shape rectangle (x, y, x+width, y+height) is entirely contained within the rectangle of the lane it belongs to (the lane's own x, y, x+width, y+height). If any element's bounds extend beyond its lane's bounds in any direction — including elements after gateway merges, the final steps before an end event, or elements reached via long branches — recompute that element's P (and/or extend the pool/lane width) until every element fits fully inside its lane with no overflow. Never let a shape or its edges render outside the swimlane it belongs to.
-
----
-
 ## XML REQUIREMENTS
 
-- Use namespace prefix bpmn: for all process elements; bpmndi: for diagram elements; dc: for bounds; di: for waypoints.
-- The <bpmn:definitions> root MUST include ALL of these namespace declarations:
+Emit the SEMANTIC model only. Do not compute or include any visual information: shape positions, edge waypoints, and pool/lane bounds are generated afterwards by a dedicated layout engine, not by you.
+
+- Do NOT emit a <bpmndi:BPMNDiagram> section, and do NOT emit x/y/width/height/waypoint/isMarkerVisible/isHorizontal values anywhere.
+- Use the namespace prefix bpmn: for every element.
+- The <bpmn:definitions> root MUST include:
     xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     targetNamespace="http://bpmn.io/schema/bpmn"
-- Every element in the process must have a corresponding BPMNShape or BPMNEdge in the BPMNDiagram section.
-- Every sequenceFlow must have waypoints in its BPMNEdge.
-- All ID attributes must be unique across the entire document.
-- Validate that every gateway has the correct number of incoming and outgoing sequence flows before outputting.
-- Add isMarkerVisible="true" on every exclusiveGateway shape in the BPMNDiagram section.
+
+**Pool and lane structure** — the layout engine only draws a pool if you model one explicitly:
+- Emit a <bpmn:collaboration> containing a single <bpmn:participant> whose processRef is the id of the <bpmn:process>. That participant IS the pool: give it the pool_ id and a name.
+- Emit one <bpmn:laneSet> as the first child of the <bpmn:process>, with one <bpmn:lane> per actor, declared in top-to-bottom reading order.
+- Every flow node must be listed in exactly one lane's <bpmn:flowNodeRef>. A node listed in no lane is not placed in a swimlane; a node listed in two lanes is rejected outright.
+- Only flow nodes go in flowNodeRef — never sequence flows.
+
+**Referential integrity** — check all of this yourself before outputting:
+- All ID attributes are unique across the entire document.
+- Every sequenceFlow's sourceRef and targetRef names a flow node declared in the same process.
+- Every gateway has at least one incoming and at least one outgoing sequence flow. A splitting gateway has one incoming and several outgoing; a merging gateway has several incoming and one outgoing.
+- Every boundaryEvent's attachedToRef names an activity in the same process.
 - Add conditionExpression on every outgoing sequence flow from an exclusiveGateway.
 
 ---
@@ -139,7 +109,7 @@ Do not report layout preferences, default event type choices, or naming decision
 Return a JSON object with exactly these four keys:
 
 {
-  "bpmnXml": "<string> Complete, valid BPMN 2.0 XML including BPMNDiagram section",
+  "bpmnXml": "<string> Complete, valid semantic BPMN 2.0 XML — no BPMNDiagram section, no coordinates",
   "elementMapping": [
     {
       "originalStep": "<string> phrase from the user input",
@@ -327,10 +297,46 @@ router.post("/bpmn/convert", async (req, res): Promise<void> => {
     return;
   }
 
+  // The model produced semantic-only XML. Positions, bounds and waypoints are
+  // computed here instead of being hand-rolled by the model — this replaces the
+  // old grid-math prompt section and its matching geometric containment check.
+  let laidOutXml: string;
+  let layoutWarnings: LayoutWarning[] = [];
+  try {
+    const layoutResult = await layoutProcess(finalResult.bpmnXml!);
+    laidOutXml = layoutResult.xml;
+    layoutWarnings = layoutResult.warnings ?? [];
+  } catch (err) {
+    // A LayoutError means the semantic model is structurally unlayoutable
+    // (e.g. a flow node claimed by two lanes, an unroutable connection).
+    const detail =
+      err instanceof LayoutError
+        ? `${err.message}${err.elementId ? ` (element "${err.elementId}")` : ""}`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    res.status(500).json({
+      error: `We understood the process but couldn't lay out a diagram for it: ${detail}`,
+    });
+    return;
+  }
+
+  const issuesAndAssumptions = [...(finalResult.issuesAndAssumptions ?? [])];
+  for (const warning of layoutWarnings) {
+    issuesAndAssumptions.push({
+      severity: "assumption",
+      description: `Layout warning: ${warning.message}`,
+      choiceMade: warning.elementId
+        ? `Element "${warning.elementId}" may not have been drawn.`
+        : "See the message for the affected element(s).",
+      alternativeIfWrong: "Adjust the element manually in a BPMN editor.",
+    });
+  }
+
   res.json({
-    bpmnXml: finalResult.bpmnXml,
+    bpmnXml: laidOutXml,
     elementMapping: finalResult.elementMapping ?? [],
-    issuesAndAssumptions: finalResult.issuesAndAssumptions ?? [],
+    issuesAndAssumptions,
     processTitle: finalResult.processTitle ?? "",
   });
 });

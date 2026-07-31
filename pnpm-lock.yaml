@@ -175,6 +175,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      bpmn-auto-layout:
+        specifier: 2.0.0-alpha.2
+        version: 2.0.0-alpha.2
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -221,6 +224,9 @@ importers:
       thread-stream:
         specifier: 3.1.0
         version: 3.1.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
 
   artifacts/bpmn-converter:
     dependencies:
@@ -1821,6 +1827,11 @@ packages:
   body-parser@2.2.2:
     resolution: {integrity: sha512-oP5VkATKlNwcgvxi0vM0p/D3n2C3EReYVX+DNYs5TjZFn/oQt2j+4sVJtSMr18pdRr8wjTcBl6LoV+FUwzPmNA==}
     engines: {node: '>=18'}
+
+  bpmn-auto-layout@2.0.0-alpha.2:
+    resolution: {integrity: sha512-Xg8BoRMijfECgWljIlE44hbGDAuF0BkjJuLfd5o3oOx1ileL06EJQhlgO040xFIegfjxq91dVFAoxCL17wo53A==}
+    engines: {node: '>= 18'}
+    hasBin: true
 
   bpmn-js@18.13.1:
     resolution: {integrity: sha512-atIcE8BS6hKEdZzXI4Mt2JG/+CVQEEOQ+H0krqrMdPXsSrwhsXUgoGDK0OEjMvaVNxr1NfGHtIqd2SpXsmSpug==}
@@ -4734,6 +4745,11 @@ snapshots:
       type-is: 2.0.1
     transitivePeerDependencies:
       - supports-color
+
+  bpmn-auto-layout@2.0.0-alpha.2:
+    dependencies:
+      bpmn-moddle: 10.0.0
+      min-dash: 5.0.0
 
   bpmn-js@18.13.1:
     dependencies:
