@@ -1,13 +1,10 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+// Replit used to supply PORT; nothing does off-platform, so this defaults.
+// Only relevant to `pnpm start` — on Vercel the serverless entrypoint imports
+// app.ts directly and never calls listen().
+const rawPort = process.env["PORT"] ?? "3000";
 
 const port = Number(rawPort);
 
