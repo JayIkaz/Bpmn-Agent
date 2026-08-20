@@ -4,20 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "start": "node --env-file-if-exists=../../.env --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:layout": "tsx ./src/routes/bpmn/layout-smoke-test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "@workspace/api-zod": "workspace:*",
-    "@workspace/db": "workspace:*",
     "bpmn-auto-layout": "2.0.0-alpha.2",
-    "cookie-parser": "^1.4.7",
     "cors": "^2",
-    "drizzle-orm": "catalog:",
     "express": "^5",
     "fast-xml-parser": "^5.9.3",
     "pino": "^9",
@@ -25,7 +22,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
