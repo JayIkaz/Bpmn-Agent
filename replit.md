@@ -37,6 +37,31 @@ A full-stack AI-powered tool that converts plain-language business process descr
 - `pnpm --filter @workspace/api-server run verify:layout` exercises validation +
   layout against a fixed sample, with no Claude API call.
 
+## Deployment (Vercel)
+
+Two separate Vercel projects off the same repo, matching the sibling repos'
+layout. Each artifact owns its own `vercel.json`; set **Root Directory** per
+project in the Vercel dashboard — that is not configurable from the repo.
+
+| Project | Root Directory | Notes |
+|---|---|---|
+| API | `artifacts/api-server` | `api/index.js` re-exports the esbuild bundle `dist/app.mjs`; all paths rewrite to it. `maxDuration: 300`. |
+| Frontend | `artifacts/bpmn-converter` | Serves `dist/public`; `/api/*` rewrites to the API deployment, everything else falls back to `index.html` (SPA). |
+
+Two things must be set by hand before the first deploy:
+
+1. **`ANTHROPIC_API_KEY`** as an environment variable on the **API** project.
+2. The API deployment URL in `artifacts/bpmn-converter/vercel.json` — it ships
+   with a `REPLACE-WITH-API-SERVER-DEPLOYMENT` placeholder.
+
+`maxDuration: 300` exceeds the Vercel Hobby ceiling (60s). On Hobby, either
+lower it and accept that long conversions may time out, or drop
+`output_config.effort` on the convert route.
+
+Why `src/app.ts` is a separate esbuild entry point: the serverless function
+needs the Express app *without* the `app.listen()` side effect in
+`src/index.ts`. `pnpm start` still uses `dist/index.mjs`.
+
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
@@ -93,7 +118,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz` (full path: `/api/healthz`)
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
